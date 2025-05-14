@@ -45,7 +45,7 @@
          publish_to_topic/2, publish_to_topic/3, publish_to_topic/4,
          publish_to_topic/5, publish_to_target/2, publish_to_target/3,
          publish_to_target/4, publish_to_target/5, publish_to_phone/2,
-         publish_to_phone/3, publish_to_phone/4, publish/5, publish/6,
+         publish_to_phone/3, publish_to_phone/4, publish/5, publish/6,publish_fifo/6,
          confirm_subscription/1, confirm_subscription/2, confirm_subscription/3,
          confirm_subscription2/2, confirm_subscription2/3, confirm_subscription2/4,
          set_topic_attributes/3, set_topic_attributes/4,
@@ -552,6 +552,36 @@ publish_to_phone(TargetArn, Message, AccessKeyID, SecretAccessKey) ->
 %% @doc
 %% Publish API:
 %% [http://docs.aws.amazon.com/sns/latest/api/API_Publish.html]
+
+%% Add this new publish_fifo/6 function to erlcloud_sns.erl
+%% This will support FIFO topics and allow MessageGroupId, MessageDeduplicationId
+%% along with standard MessageAttributes like orgId
+
+-spec publish_fifo(string(), string(), string(), [{string(), string()}], [{string(), string() | binary() | number()}], aws_config()) -> string().
+publish_fifo(TopicArn, Subject, Message, FIFOOptions, MessageAttributes, Config) ->
+    BaseParams = [
+        {"TopicArn", TopicArn},
+        {"Message", Message},
+        {"Subject", Subject},
+        {"Action", "Publish"},
+        {"Version", ?API_VERSION}
+    ],
+
+    FIFOParams = lists:filter(fun({K, V}) -> V =/= undefined end, FIFOOptions),
+    AttrParams = message_attributes(MessageAttributes),
+
+    Params = BaseParams ++ FIFOParams ++ AttrParams,
+
+    Doc = erlcloud_aws:aws_request_xml4(post,
+        scheme_to_protocol(Config#aws_config.sns_scheme),
+        Config#aws_config.sns_host,
+        Config#aws_config.sns_port,
+        "/",
+        Params,
+        "sns",
+        Config),
+
+    erlcloud_xml:get_text("PublishResult/MessageId", Doc).
 
 -spec publish(topic|target|phone, string(), sns_message(), undefined|string(), aws_config()) -> string().
 publish(Type, RecipientArn, Message, Subject, Config) ->
